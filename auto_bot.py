@@ -42,8 +42,8 @@ BARK_URL = os.environ.get("BARK_URL", "")
 PHASE_1_CONFIG = {
     'min_change': 3.0,              # 最小涨幅 % (3.0%)
     'max_change': 5.0,               # 最大涨幅 % (5.0%)
-    'min_market_cap': 50000000000,   # 最小流通市值 50亿
-    'max_market_cap': 200000000000,  # 最大流通市值 200亿
+    'min_market_cap': 5000000000,   # 最小流通市值 50亿
+    'max_market_cap': 20000000000,  # 最大流通市值 200亿
     'min_volume_ratio': 1.2,        # 最小量比
     'min_turnover': 5.0,             # 最小换手率 %
     'max_turnover': 10.0,            # 最大换手率 %
@@ -785,7 +785,8 @@ def get_ai_analysis(stock, phase_1_df):
             indicators_str.append("BOLL上轨突破")
         tech_desc = "、".join(indicators_str) if indicators_str else "基础量价异动"
 
-        ai_prompt = f"""你是一位资深的A股短线游资和基本面分析专家。
+        today_str = datetime.now().strftime("%Y年%m月%d日")
+        ai_prompt = f"""今天是{today_str}。你是一位资深的A股短线游资和基本面分析专家。
 系统今日尾盘捕获了【{stock['名称']} ({stock['代码']})】，属于【{sector_info}】板块。
 该股满足了严格的均线多头和放量突破底线，最新价 {current_price:.2f}，当前市盈率(PE)约为 {pe_info}。
 技术面触发了 {stock.get('共振星级', 1)} 星级共振，具体表现为：{tech_desc}。
@@ -907,7 +908,7 @@ def main():
         )
 
         # 仅对 共振星级 >= 2 的股票触发 AI 分析
-        if stock['共振星级'] >= 2:
+        if stock['共振星级'] >= 1:
             print(f"正在分析 {stock['名称']} (共振星级 {stock['共振星级']}⭐)...")
             ai_result = get_ai_analysis(stock, phase_1_df)
             if ai_result:
