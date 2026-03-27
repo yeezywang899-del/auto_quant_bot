@@ -70,7 +70,7 @@ def send_bark(title, body):
         # 去除末尾的斜杠，得到基础 URL
         base_url = BARK_URL.rstrip('/')
         
-        # 将文字和设置打包成 JSON 数据发送，彻底突破长度限制
+        # 将文字打包成 JSON 数据发送，彻底突破 GET 请求的 414 长度限制
         payload = {
             "title": title,
             "body": body,
@@ -82,7 +82,6 @@ def send_bark(title, body):
         res = requests.post(base_url, json=payload, timeout=10)
         print(f"Bark 推送状态: {res.status_code}")
         
-        # 如果还是失败，打印出具体的错误原因方便排查
         if res.status_code != 200:
             print(f"Bark 返回报错详情: {res.text}")
             
@@ -759,24 +758,18 @@ def screen_phase_2(phase_1_df):
 
 def get_ai_analysis(stock, phase_1_df):
     """使用 AI 进行深度分析"""
-    if not API_KEY or API_BASE == "https://api.xxxx.com/v1":
+    if not API_KEY:
         return None
 
     try:
         client = OpenAI(api_key=API_KEY, base_url=API_BASE)
 
-        # 从 phase_1_df 获取板块和市盈率信息
+        # 从 phase_1_df 获取板块信息
         sector_info = "未知"
-        pe_info = "未知"
         if not phase_1_df.empty:
             stock_row = phase_1_df[phase_1_df['代码'] == stock['代码']]
-            if not stock_row.empty:
-                if '所属板块' in stock_row.columns:
-                    sector_info = stock_row.iloc[0]['所属板块']
-                if '市盈率' in stock_row.columns:
-                    pe_val = stock_row.iloc[0]['市盈率']
-                    if pd.notna(pe_val) and pe_val > 0:
-                        pe_info = f"{pe_val:.2f}"
+            if not stock_row.empty and '所属板块' in stock_row.columns:
+                sector_info = stock_row.iloc[0]['所属板块']
 
         current_price = float(stock['最新价'])
         ma5 = float(stock['MA5'])
@@ -796,15 +789,12 @@ def get_ai_analysis(stock, phase_1_df):
         tech_desc = "、".join(indicators_str) if indicators_str else "基础量价异动"
 
         today_str = datetime.now().strftime("%Y年%m月%d日")
-        ai_prompt = f"""今天是{today_str}。你是一位资深的A股短线游资和基本面分析专家。
-系统今日尾盘捕获了【{stock['名称']} ({stock['代码']})】，属于【{sector_info}】板块。
-该股满足了严格的均线多头和放量突破底线，最新价 {current_price:.2f}，当前市盈率(PE)约为 {pe_info}。
-技术面触发了 {stock.get('共振星级', 1)} 星级共振，具体表现为：{tech_desc}。
+        ai_prompt = f"""今天是 {today_str}。你是资深A股游资。
+今日尾盘捕获【{stock['名称']} ({stock['代码']})】，属【{sector_info}】板块。
+现价 {current_price:.2f}，技术面 {stock.get('共振星级', 1)} 星级共振。
 绝对防守线: {defense_line:.2f}，阻力突破线: {target_line:.2f}。
-请结合近期A股宏观资金面和该公司基本面，帮我分析：
-1. 这次突破的确定性如何？是否契合当前市场主线？
-2. 近期是否有暗藏的减持、解禁或业绩暴雷风险？
-请给出简练、专业的交易建议（300字以内）。"""
+请简短分析：1.突破确定性？2.近期有无减持/暴雷风险？
+【警告】请注意当前年份是 {today_str[:4]} 年。必须严格控制在 150 字以内输出核心结论！"""
 
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -870,20 +860,20 @@ def main():
     print("\n[步骤4] 按共振星级降序排列...")
     qualified_stocks = sorted(qualified_stocks, key=lambda x: x['共振星级'], reverse=True)
 
-    # 步骤5: AI 批量研判与拼装推送文案
-    print("\n[步骤5] AI 批量研判与拼装推送文案...")
-
-    push_lines = []
-    push_lines.append(f"📈 A股选股推送 ({datetime.now().strftime('%m-%d %H:%M')})")
-    push_lines.append("=" * 50)
-
-    if sector_str:
-        push_lines.append(f"🔥 板块共振: {sector_str}")
-    push_lines.append(f"🎯 筛选结果: {len(qualified_stocks)} 只标的")
-    push_lines.append("")
+    # 步骤5: AI 批量研判与拼装推送文案（化整为零，单发推送）
+    print("\n[步骤5] 生成研报并逐个推送...")
 
     phase_1_df = phase_1_result  # 保存一筛结果供 AI 分析使用
 
+    # 先发总览
+    overview_title = f"🎯 尾盘监控完成"
+    overview_body = f"共发现 {len(qualified_stocks)} 只标的，正在生成研报..."
+    if sector_str:
+        overview_body += f"\n今日板块共振: {sector_str}"
+    send_bark(overview_title, overview_body)
+    time.sleep(1.5)
+
+    # 遍历股票，逐个发送推送
     for i, stock in enumerate(qualified_stocks, 1):
         current_price = float(stock['最新价'])
         ma5 = float(stock['MA5'])
@@ -908,13 +898,12 @@ def main():
 
         # 构建股票信息
         star_display = "⭐" * stock['共振星级']
-        stock_info = (
-            f"\n[{i}] {stock['名称']} ({stock['代码']})\n"
-            f"    共振星级: {stock['共振星级']}{star_display}\n"
-            f"    现价: {current_price:.2f} | 涨跌幅: {stock['涨跌幅']:.2f}%\n"
-            f"    板块: {sector_info} | 换手率: {turnover:.2f}%\n"
-            f"    绝对防守线: {defense_line:.2f}\n"
-            f"    阻力突破线: {target_line:.2f}"
+        stock_body = (
+            f"现价: {current_price:.2f} | 涨跌幅: {stock['涨跌幅']:.2f}%\n"
+            f"板块: {sector_info} | 换手率: {turnover:.2f}%\n"
+            f"共振星级: {stock['共振星级']}{star_display}\n"
+            f"绝对防守线: {defense_line:.2f}\n"
+            f"阻力突破线: {target_line:.2f}"
         )
 
         # 仅对 共振星级 >= 2 的股票触发 AI 分析
@@ -922,22 +911,12 @@ def main():
             print(f"正在分析 {stock['名称']} (共振星级 {stock['共振星级']}⭐)...")
             ai_result = get_ai_analysis(stock, phase_1_df)
             if ai_result:
-                stock_info += f"\n    🤖 AI研判: {ai_result}"
+                stock_body += f"\n\n🤖 AI研判: {ai_result}"
 
-        push_lines.append(stock_info)
-        time.sleep(0.5)  # 避免频繁调用 API
-
-    push_text = "\n".join(push_lines)
-
-    print("\n" + "=" * 60)
-    print("推送内容预览:")
-    print("=" * 60)
-    print(push_text)
-    print("=" * 60)
-
-    # 步骤6: 发送 Bark 推送
-    print("\n[步骤6] 发送 Bark 推送...")
-    send_bark(f"A股选股: {len(qualified_stocks)}只标的", push_text)
+        # 发送单只股票推送
+        push_title = f"[{i}/{len(qualified_stocks)}] {stock['名称']} ({stock['代码']})"
+        send_bark(push_title, stock_body)
+        time.sleep(1.5)  # 防止并发过快被 Bark 拦截
 
     print("\n脚本执行完成！")
 
