@@ -63,21 +63,31 @@ stock_history_cache = {}
 
 # ==================== Bark 推送函数 ====================
 def send_bark(title, body):
-    """发送 Bark 推送通知"""
     if not BARK_URL:
         print("未配置 BARK_URL，跳过推送")
         return
     try:
-        # 对标题和正文进行 URL 编码
-        import urllib.parse
-        encoded_title = urllib.parse.quote(title)
-        encoded_body = urllib.parse.quote(body)
-
-        url = f"{BARK_URL.rstrip('/')}/{encoded_title}/{encoded_body}"
-        res = requests.get(url + "?isArchive=1&icon=https://cdn-icons-png.flaticon.com/512/2942/2942263.png", timeout=5)
+        # 去除末尾的斜杠，得到基础 URL
+        base_url = BARK_URL.rstrip('/')
+        
+        # 将文字和设置打包成 JSON 数据发送，彻底突破长度限制
+        payload = {
+            "title": title,
+            "body": body,
+            "isArchive": 1,
+            "icon": "https://cdn-icons-png.flaticon.com/512/2942/2942263.png"
+        }
+        
+        # 使用 POST 请求发送数据包
+        res = requests.post(base_url, json=payload, timeout=10)
         print(f"Bark 推送状态: {res.status_code}")
+        
+        # 如果还是失败，打印出具体的错误原因方便排查
+        if res.status_code != 200:
+            print(f"Bark 返回报错详情: {res.text}")
+            
     except Exception as e:
-        print(f"Bark 推送失败: {e}")
+        print(f"Bark 推送发生异常: {e}")
 
 
 # ==================== 数据获取函数 ====================
@@ -908,7 +918,7 @@ def main():
         )
 
         # 仅对 共振星级 >= 2 的股票触发 AI 分析
-        if stock['共振星级'] >= 1:
+        if stock['共振星级'] >= 2:
             print(f"正在分析 {stock['名称']} (共振星级 {stock['共振星级']}⭐)...")
             ai_result = get_ai_analysis(stock, phase_1_df)
             if ai_result:
