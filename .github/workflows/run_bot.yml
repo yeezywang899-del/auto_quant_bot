@@ -28,6 +28,7 @@ jobs:
 
     - name: Run Auto Bot
       env:
+        TZ: Asia/Shanghai
         BARK_URL: ${{ secrets.BARK_URL }}
         API_KEY: ${{ secrets.API_KEY }}
         API_BASE: ${{ secrets.API_BASE }}
