@@ -1,12 +1,11 @@
 name: A股尾盘自动监控机器人
 
 on:
+  repository_dispatch:
+    types: [run-bot-trigger]  
   schedule:
-    # 重点：GitHub 服务器使用的是 UTC 时间！
-    # 北京/新加坡时间 14:30，减去 8 小时，就是 UTC 06:30。
-    # 这里的 1-5 表示周一到周五运行。
-    - cron: '30 6 * * 1-5'
-  workflow_dispatch: # 允许你手动点击按钮测试运行
+    - cron: '30 6 * * 1-5'   
+  workflow_dispatch:         
 
 jobs:
   run-quant-bot:
