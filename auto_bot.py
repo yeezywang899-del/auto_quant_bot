@@ -45,6 +45,7 @@ PHASE_1_CONFIG = {
     'min_market_cap': 5000000000,   # 最小流通市值 50亿
     'max_market_cap': 20000000000,  # 最大流通市值 200亿
     'min_volume_ratio': 1.2,        # 最小量比
+    'max_volume_ratio': 5.0,        # 最大量比
     'min_turnover': 5.0,             # 最小换手率 %
     'max_turnover': 10.0,            # 最大换手率 %
 }
@@ -563,9 +564,12 @@ def screen_phase_1(df):
     print(f"条件1+2后: {conditions.sum()} 只")
 
     if '量比' in df_clean.columns and (df_clean['量比'] > 0).any():
-        vr_condition = (df_clean['量比'] > config['min_volume_ratio'])
+        vr_condition = (
+            (df_clean['量比'] > config['min_volume_ratio']) & 
+            (df_clean['量比'] <= config.get('max_volume_ratio', 5.0))
+        )
         conditions = conditions & vr_condition
-        print(f"条件3 - 量比 > {config['min_volume_ratio']}: {vr_condition.sum()} 只")
+        print(f"条件3 - 量比 {config['min_volume_ratio']} ~ {config['max_volume_ratio']}: {vr_condition.sum()} 只")
     print(f"条件1+2+3后: {conditions.sum()} 只")
 
     if '换手率' in df_clean.columns and (df_clean['换手率'] > 0).any():
