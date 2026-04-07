@@ -797,8 +797,8 @@ def get_ai_analysis(stock, phase_1_df):
 今日尾盘捕获【{stock['名称']} ({stock['代码']})】，属【{sector_info}】板块。
 现价 {current_price:.2f}，技术面 {stock.get('共振星级', 1)} 星级共振。
 绝对防守线: {defense_line:.2f}，阻力突破线: {target_line:.2f}。
-请简短分析：1.突破确定性？2.近期有无减持/暴雷风险？
-【警告】请注意当前年份是 {today_str[:4]} 年。必须严格控制在 150 字以内输出核心结论！"""
+请简短分析：1.上涨原因与未来展望？2.突破确定性？3.近期有无减持/暴雷风险？
+【警告】请注意当前年份是 {today_str[:4]} 年。必须严格控制在 250 字以内输出核心结论！"""
 
         response = client.chat.completions.create(
             model=MODEL_NAME,
