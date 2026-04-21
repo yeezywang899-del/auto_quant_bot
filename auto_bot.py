@@ -812,9 +812,18 @@ def get_ai_analysis(stock, phase_1_df):
         current_price = float(stock['最新价'])
         ma5 = float(stock['MA5'])
         open_price = float(stock['开盘价'])
-        defense_line = round(current_price - 1.5 * float(stock['ATR_14']), 2)
         high_20d = float(stock['20日最高'])
-        target_line = round(high_20d * 1.02, 2)
+        atr_14 = float(stock['ATR_14'])
+        
+        base_support = max(ma5, open_price)
+        defense_line = round(base_support - 1.2 * atr_14, 2)
+        max_loss_price = round(current_price * 0.92, 2)
+        defense_line = max(defense_line, max_loss_price)
+        # 追求高赔率
+        risk_amount = current_price - defense_line
+        rr_target = current_price + (risk_amount * 1.5)
+        momentum_target = high_20d + (0.5 * atr) 
+        target_line = round(max(rr_target, momentum_target), 2)
 
         # 动态构建技术指标描述字符串
         indicators_str = []
@@ -917,16 +926,22 @@ def main():
 
     # 遍历股票，逐个发送推送
     for i, stock in enumerate(qualified_stocks, 1):
+        
         current_price = float(stock['最新价'])
         ma5 = float(stock['MA5'])
         open_price = float(stock['开盘价'])
-
-        # 绝对防守线 (止损): MA5 和 今日开盘价 中的最大值，向下浮动 1%
-        defense_line = round(max(ma5, open_price) * 0.99, 2)
-
-        # 阻力突破线 (止盈): 20日最高价 向上浮动 2%
         high_20d = float(stock['20日最高'])
-        target_line = round(high_20d * 1.02, 2)
+        atr_14 = float(stock['ATR_14'])
+        # 动态止损线（8%保底）
+        base_support = max(ma5, open_price)
+        defense_line = round(base_support - 1.2 * atr_14, 2)
+        max_loss_price = round(current_price * 0.92, 2)
+        defense_line = max(defense_line, max_loss_price)
+        # 追求高赔率
+        risk_amount = current_price - defense_line
+        rr_target = current_price + (risk_amount * 1.5)
+        momentum_target = high_20d + (0.5 * atr) 
+        target_line = round(max(rr_target, momentum_target), 2)
 
         # 获取板块信息
         sector_info = "未知"
@@ -948,8 +963,8 @@ def main():
             f"阻力突破线: {target_line:.2f}"
         )
 
-        # 仅对 共振星级 >= 2 的股票触发 AI 分析
-        if stock['共振星级'] >= 2:
+        # 仅对 共振星级 >= 4 的股票触发 AI 分析
+        if stock['共振星级'] >= 4:
             print(f"正在分析 {stock['名称']} (共振星级 {stock['共振星级']}⭐)...")
             ai_result = get_ai_analysis(stock, phase_1_df)
             if ai_result:
