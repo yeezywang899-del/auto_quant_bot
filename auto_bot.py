@@ -850,7 +850,7 @@ def get_ai_analysis(stock, phase_1_df):
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": ai_prompt}],
-            temperature=0.7
+            temperature=0.7,
             timeout = 15.0
         )
 
