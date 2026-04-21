@@ -3,8 +3,6 @@ name: A股尾盘自动监控机器人
 on:
   repository_dispatch:
     types: [run-bot-trigger]  
-  schedule:
-    - cron: '30 6 * * 1-5'   
   workflow_dispatch:         
 
 jobs:
