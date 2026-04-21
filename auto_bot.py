@@ -795,7 +795,7 @@ def screen_phase_2(phase_1_df):
     return qualified_stocks, failed_stocks
 
 
-def get_ai_analysis(stock, phase_1_df):
+def get_ai_analysis(stock, phase_1_df, sector_str):
     """使用 AI 进行深度分析"""
     if not API_KEY:
         return None
@@ -841,14 +841,19 @@ def get_ai_analysis(stock, phase_1_df):
         tech_desc = "、".join(indicators_str) if indicators_str else "基础量价异动"
 
         today_str = datetime.now().strftime("%Y年%m月%d日")
-        ai_prompt = f"""今天是 {today_str}。你是冷酷且极其专业的A股游资操盘手。
-尾盘触发【{stock['名称']} ({stock['代码']})】，属【{sector_info}】板块。
-现价:{current_price:.2f}，防守线:{defense_line:.2f}，阻力线:{target_line:.2f}。技术面:{stock.get('共振星级', 1)}星级极强共振。
+        
+        # 处理全市场主线信息
+        market_context = f"今日全市场资金主线为：【{sector_str}】" if sector_str else "今日市场无明显绝对主线"
 
-请直接输出以下3点（严禁寒暄和废话，总字数严格控制在 250 字以内，采用项目符号排版）：
-1. 💡【主线逻辑】：该板块当前核心炒作逻辑是什么？是否有强政策或宏观基本面支撑？
-2. 💣【基本面排雷】：根据你的知识库，该公司近期有无大额解禁、商誉减值、立案调查等致命风险？（注意当前年份是{today_str[:4]}年，若无风险请明确回复“暂无明显雷区”）
-3. ⚖️【赔率评估】：结合给定的防守线和阻力线，简评当前的盈亏比，给出果断的接力建议。"""
+        ai_prompt = f"""今天是 {today_str}。你是冷酷且一针见血的A股短线游资。
+触发标的：【{stock['名称']} ({stock['代码']})】，属【{sector_info}】板块。
+{market_context}。
+现价:{current_price:.2f}，防守线:{defense_line:.2f}，阻力线:{target_line:.2f}。技术面为 {stock.get('共振星级', 1)} 星级极致突破。
+
+请严格以“次日接力博弈”的视角，输出以下3点（严禁背诵宏观研报、严禁重复计算盈亏比，必须直击要害，限 200 字内）：
+1. 🚀【题材与共振】：该股当下的短线炒作“阵眼”（核心催化剂）是什么？是否与今日市场主线共振，还是孤军奋战？
+2. 🩸【筹码与硬伤】：别说“暂无风险”这种废话。请指出它最致命的弱点！例如：上方是否有沉重的历史套牢盘？是纯情绪连板还是有真实业绩支撑？盘子大小是否适合游资接力？
+3. ⚔️【操盘推演】：我不听盈亏比计算。请判断：以它近期的股性，次日是容易“加速一字/秒板”，还是容易“冲高回落骗炮”？次日若低开洗盘，什么量价形态下坚决不能接？"""
 
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -970,7 +975,7 @@ def main():
         # 仅对 共振星级 >= 4 的股票触发 AI 分析
         if stock['共振星级'] >= 4:
             print(f"正在分析 {stock['名称']} (共振星级 {stock['共振星级']}⭐)...")
-            ai_result = get_ai_analysis(stock, phase_1_df)
+            ai_result = get_ai_analysis(stock, phase_1_df,sector_str)
             if ai_result:
                 stock_body += f"\n\n🤖 AI研判: {ai_result}"
 
