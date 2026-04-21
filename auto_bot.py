@@ -841,18 +841,20 @@ def get_ai_analysis(stock, phase_1_df):
         tech_desc = "、".join(indicators_str) if indicators_str else "基础量价异动"
 
         today_str = datetime.now().strftime("%Y年%m月%d日")
-        ai_prompt = f"""今天是 {today_str}。你是资深A股游资。
-今日尾盘捕获【{stock['名称']} ({stock['代码']})】，属【{sector_info}】板块。
-现价 {current_price:.2f}，技术面 {stock.get('共振星级', 1)} 星级共振。
-绝对防守线: {defense_line:.2f}，阻力突破线: {target_line:.2f}。
-请简短分析：1.上涨原因与未来展望？2.突破确定性？3.近期有无减持/暴雷风险？
-【警告】请注意当前年份是 {today_str[:4]} 年。必须严格控制在 250 字以内输出核心结论！"""
+        ai_prompt = f"""今天是 {today_str}。你是冷酷且极其专业的A股游资操盘手。
+尾盘触发【{stock['名称']} ({stock['代码']})】，属【{sector_info}】板块。
+现价:{current_price:.2f}，防守线:{defense_line:.2f}，阻力线:{target_line:.2f}。技术面:{stock.get('共振星级', 1)}星级极强共振。
+
+请直接输出以下3点（严禁寒暄和废话，总字数严格控制在 250 字以内，采用项目符号排版）：
+1. 💡【主线逻辑】：该板块当前核心炒作逻辑是什么？是否有强政策或宏观基本面支撑？
+2. 💣【基本面排雷】：根据你的知识库，该公司近期有无大额解禁、商誉减值、立案调查等致命风险？（注意当前年份是{today_str[:4]}年，若无风险请明确回复“暂无明显雷区”）
+3. ⚖️【赔率评估】：结合给定的防守线和阻力线，简评当前的盈亏比，给出果断的接力建议。"""
 
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": ai_prompt}],
             temperature=0.7,
-            timeout = 15.0
+            timeout = 60.0
         )
 
         return response.choices[0].message.content
