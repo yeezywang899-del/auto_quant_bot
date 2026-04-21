@@ -472,6 +472,23 @@ def get_stock_history(stock_code, days=40, max_retries=2):
             df['BOLL_DOWN'] = df['BOLL_MID'] - 2 * df['BOLL_STD']
             df['BOLL_WIDTH'] = df['BOLL_UP'] - df['BOLL_DOWN']
 
+            # OBV
+            df['OBV'] = np.where(df['收盘'] > df['收盘'].shift(1), df['成交量'], 
+            np.where(df['收盘'] < df['收盘'].shift(1), -df['成交量'], 0)).cumsum()
+
+            # OBV_MA20
+            df['OBV_MA20'] = df['OBV'].rolling(window=20).mean()
+
+            # TR & ATR
+            df['TR'] = np.maximum(df['最高'] - df['最低'], 
+                          np.maximum(abs(df['最高'] - df['收盘'].shift(1)), 
+                                     abs(df['最低'] - df['收盘'].shift(1))))
+            df['ATR_14'] = df['TR'].rolling(window=14).mean()
+            
+            # 计算 5 日平均振幅，用于判断突破前的波动率是否收敛
+            df['振幅'] = (df['最高'] - df['最低']) / df['收盘'].shift(1)
+            df['历史振幅_MA5'] = df['振幅'].shift(1).rolling(5).mean()
+
             stock_history_cache[stock_code] = df
             return df
 
@@ -693,20 +710,33 @@ def screen_phase_2(phase_1_df):
         # 条件G【BOLL触轨放大】: 收盘价 >= BOLL上轨95% 且 喇叭口今日 > 昨日
         condition_g = (latest['收盘'] >= latest['BOLL_UP'] * 0.95) and (latest['BOLL_WIDTH'] > yesterday['BOLL_WIDTH'])
 
-        # 【绝对底线】必须全部满足：均线达标 且 量价齐升
-        cond_base = condition_a and condition_b
+        # 条件 H【OBV 资金潜伏】: OBV 必须站上 20 日均线，说明主力近期是净买入状态
+        condition_h = latest['OBV'] > latest['OBV_MA20']
+        
+        # 条件 I【VCP 蓄力突破】: 突破前5天的平均振幅必须小于 5%（弹簧压紧），且今日量比大于昨日（爆发）
+        condition_i = (latest['历史振幅_MA5'] < 0.05) and (latest['成交量'] > yesterday['成交量'] * 1.5)
+        
+        # 条件 J【ATR 趋势护城河】: 收盘价必须高于 MA20 加上 1.5 倍的 ATR，说明彻底脱离了底部泥潭
+        condition_j = latest['收盘'] > (latest['MA20'] + 1.5 * latest['ATR_14'])
+        
+        # 【绝对底线】必须全部满足：均线达标 + 量价齐升 + 资金净流入（OBV）
+        cond_base = condition_a and condition_b and condition_h
 
-        # 【弹性加分项】计算共振得分 (0-3分)
+        # 【弹性加分项】计算共振得分 (0-5分)
         resonance_score = 0
         if condition_e:
-            resonance_score += 1
+            resonance_score += 1 # MACD
         if condition_f:
-            resonance_score += 1
+            resonance_score += 1 # KDJ
         if condition_g:
-            resonance_score += 1
+            resonance_score += 1 # BOLL
+        if condition_i:
+            resonance_score += 1 # VCP 收缩突破
+        if condition_j:
+            resonance_score += 1 # ATR 趋势确立
 
-        # 新的通过条件：满足趋势底线，且三大指标至少有1个共振
-        all_conditions_met = cond_base and (resonance_score >= 1)
+        # 新的通过条件：满足趋势底线，且五大指标至少有2个共振
+        all_conditions_met = cond_base and (resonance_score >= 2)
 
         if all_conditions_met:
             qualified_stocks.append({
@@ -730,6 +760,8 @@ def screen_phase_2(phase_1_df):
                 'MACD金叉': condition_e,
                 'KDJ金叉': condition_f,
                 'BOLL触轨': condition_g,
+                'VCP收缩突破': condition_i,
+                'ATR趋势确立': condition_j,
                 '共振星级': resonance_score,
             })
         else:
@@ -738,7 +770,9 @@ def screen_phase_2(phase_1_df):
                 failed_reasons.append('均线多头不符')
             if not condition_b:
                 failed_reasons.append('量价未齐升')
-            if cond_base and resonance_score < 1:
+            if not condition_h:
+                failed_reasons.append('资金净流入不符')
+            if cond_base and resonance_score < 2:
                 failed_reasons.append('无高级指标共振')
             if not condition_c:
                 failed_reasons.append('未有效突破')
@@ -778,7 +812,7 @@ def get_ai_analysis(stock, phase_1_df):
         current_price = float(stock['最新价'])
         ma5 = float(stock['MA5'])
         open_price = float(stock['开盘价'])
-        defense_line = round(max(ma5, open_price) * 0.99, 2)
+        defense_line = round(current_price - 1.5 * float(stock['ATR_14']), 2)
         high_20d = float(stock['20日最高'])
         target_line = round(high_20d * 1.02, 2)
 
@@ -790,6 +824,10 @@ def get_ai_analysis(stock, phase_1_df):
             indicators_str.append("KDJ多头向上")
         if stock.get('BOLL触轨'):
             indicators_str.append("BOLL上轨突破")
+        if stock.get('VCP收缩突破'):
+            indicators_str.append('VCP收缩突破')
+        if stock.get('ATR趋势确立'):
+            indicators_str.append('ATR趋势确立')
         tech_desc = "、".join(indicators_str) if indicators_str else "基础量价异动"
 
         today_str = datetime.now().strftime("%Y年%m月%d日")
