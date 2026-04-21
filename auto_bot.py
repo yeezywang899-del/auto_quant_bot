@@ -753,6 +753,7 @@ def screen_phase_2(phase_1_df):
                 'MA10': latest['MA10'],
                 'MA20': latest['MA20'],
                 '20日最高': latest['20日最高'],
+                'ATR_14': latest['ATR_14'],
                 '均线多头': condition_a,
                 '量价齐升': condition_b,
                 '有效突破': condition_c,
