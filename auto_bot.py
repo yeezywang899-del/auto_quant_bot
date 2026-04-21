@@ -822,7 +822,7 @@ def get_ai_analysis(stock, phase_1_df):
         # 追求高赔率
         risk_amount = current_price - defense_line
         rr_target = current_price + (risk_amount * 1.5)
-        momentum_target = high_20d + (0.5 * atr) 
+        momentum_target = high_20d + (0.5 * atr_14) 
         target_line = round(max(rr_target, momentum_target), 2)
 
         # 动态构建技术指标描述字符串
@@ -851,6 +851,7 @@ def get_ai_analysis(stock, phase_1_df):
             model=MODEL_NAME,
             messages=[{"role": "user", "content": ai_prompt}],
             temperature=0.7
+            timeout = 15.0
         )
 
         return response.choices[0].message.content
@@ -940,7 +941,7 @@ def main():
         # 追求高赔率
         risk_amount = current_price - defense_line
         rr_target = current_price + (risk_amount * 1.5)
-        momentum_target = high_20d + (0.5 * atr) 
+        momentum_target = high_20d + (0.5 * atr_14) 
         target_line = round(max(rr_target, momentum_target), 2)
 
         # 获取板块信息
